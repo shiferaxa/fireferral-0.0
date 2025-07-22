@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/referral_model.dart';
-import '../models/user_model.dart';
+
 import '../models/fiber_package.dart';
 
 class ReferralService {
@@ -208,8 +208,8 @@ class ReferralService {
       final rejectedReferrals = referrals.where((r) => r.status == ReferralStatus.rejected).length;
       
       final double conversionRate = totalReferrals > 0 ? (installedReferrals / totalReferrals) * 100 : 0.0;
-      final double totalCommissions = referrals.where((r) => r.isPaid).fold(0.0, (sum, r) => sum + r.commissionAmount);
-      final double pendingCommissions = referrals.where((r) => r.status == ReferralStatus.installed).fold(0.0, (sum, r) => sum + r.commissionAmount);
+      final double totalCommissions = referrals.where((r) => r.isPaid).fold(0.0, (total, r) => total + r.commissionAmount);
+      final double pendingCommissions = referrals.where((r) => r.status == ReferralStatus.installed).fold(0.0, (total, r) => total + r.commissionAmount);
 
       // Package breakdown
       final Map<String, int> packageBreakdown = {};

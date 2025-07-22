@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:ui';
@@ -74,15 +73,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  Future<bool> _loadLogo() async {
-    try {
-      await rootBundle.load('assets/images/fireferral_logo.png');
-      return true;
-    } catch (e) {
-      print('🔍 Logo asset not found: $e');
-      return false;
-    }
-  }
+
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -102,10 +93,13 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final theme = Theme.of(context);
+      
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(authProvider.errorMessage ?? 'Login failed'),
-          backgroundColor: Theme.of(context).colorScheme.error,
+          backgroundColor: theme.colorScheme.error,
         ),
       );
     }
@@ -470,14 +464,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildLogo() {
-    // For now, we'll use a custom painted version of your logo
-    // You can replace this with Image.asset('assets/images/logo.png') once you add the PNG file
-    return CustomPaint(
-      painter: LogoPainter(),
-      size: const Size(60, 60),
-    );
-  }
+
 
   void _showForgotPasswordDialog() {
     final emailController = TextEditingController();
@@ -513,8 +500,12 @@ class _LoginScreenState extends State<LoginScreen>
                 final success = await authProvider.resetPassword(emailController.text.trim());
                 
                 if (mounted) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  final navigator = Navigator.of(context);
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                  final theme = Theme.of(context);
+                  
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
                     SnackBar(
                       content: Text(
                         success 
@@ -522,8 +513,8 @@ class _LoginScreenState extends State<LoginScreen>
                             : authProvider.errorMessage ?? 'Failed to send reset email',
                       ),
                       backgroundColor: success 
-                          ? Theme.of(context).colorScheme.primary 
-                          : Theme.of(context).colorScheme.error,
+                          ? theme.colorScheme.primary 
+                          : theme.colorScheme.error,
                     ),
                   );
                 }

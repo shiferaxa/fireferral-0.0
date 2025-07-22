@@ -80,7 +80,6 @@ class AppThemes {
       tertiary: AppColors.attLightBlue,
       surface: const Color(0xFF0F1419), // Dark AT&T-inspired background
       onSurface: Colors.white,
-      background: const Color(0xFF0A0E13),
     ),
     appBarTheme: const AppBarTheme(
       centerTitle: true,

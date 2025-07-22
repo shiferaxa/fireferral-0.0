@@ -30,6 +30,7 @@ class FireferralApp extends StatelessWidget {
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, child) {
+          debugPrint('🎨 Building app with theme: ${themeProvider.currentTheme.name}, dark: ${themeProvider.isDarkMode}');
           return MaterialApp.router(
             title: 'Fireferral',
             theme: AppThemes.getTheme(themeProvider.currentTheme, false),

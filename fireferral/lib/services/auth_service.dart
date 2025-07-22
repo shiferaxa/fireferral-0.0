@@ -45,12 +45,10 @@ class AuthService {
     String? associateId,
   }) async {
     try {
-      print('🔍 DEBUG: Creating Firebase Auth user...');
       final UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      print('🔍 DEBUG: Firebase Auth user created: ${result.user?.uid}');
 
       if (result.user != null) {
         final userModel = UserModel(
@@ -63,16 +61,13 @@ class AuthService {
           createdAt: DateTime.now(),
         );
 
-        print('🔍 DEBUG: Saving user data to Firestore...');
         // Save user data to Firestore
         await _firestore.collection('users').doc(result.user!.uid).set(userModel.toMap());
-        print('🔍 DEBUG: User data saved to Firestore successfully');
         
         return userModel;
       }
       return null;
     } catch (e) {
-      print('🔍 DEBUG: Error in createUserAccount: $e');
       throw Exception('Account creation failed: ${e.toString()}');
     }
   }
@@ -173,7 +168,6 @@ class AuthService {
   // Check if any admin exists (for initial setup)
   Future<bool> hasAdminUser() async {
     try {
-      print('🔍 DEBUG: Checking for existing admin users...');
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: UserRole.admin.name)
@@ -182,10 +176,8 @@ class AuthService {
           .get();
 
       final hasAdmin = snapshot.docs.isNotEmpty;
-      print('🔍 DEBUG: Found ${snapshot.docs.length} admin users');
       return hasAdmin;
     } catch (e) {
-      print('🔍 DEBUG: Error checking admin users: $e');
       // If we can't check, assume no admin exists to allow signup
       return false;
     }

@@ -3,6 +3,11 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/user_model.dart';
+import '../../services/referral_service.dart';
+import '../referrals/referrals_list_screen.dart';
+import '../referrals/submit_referral_screen.dart';
+import '../admin/admin_panel_screen.dart';
+import '../settings/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,6 +18,41 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  final ReferralService _referralService = ReferralService();
+  Map<String, dynamic>? _analyticsData;
+  bool _isLoadingAnalytics = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnalyticsData();
+  }
+
+  Future<void> _loadAnalyticsData() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final user = authProvider.currentUser;
+      
+      if (user != null) {
+        final data = await _referralService.getAnalyticsData(
+          userId: user.role == UserRole.admin ? null : user.id,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _analyticsData = data;
+            _isLoadingAnalytics = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingAnalytics = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +126,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       break;
                     case 'settings':
                       if (authProvider.isAdmin) {
-                        _showSettingsDialog();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsScreen(),
+                          ),
+                        );
                       }
                       break;
                     case 'logout':
@@ -263,9 +307,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _isLoadingAnalytics = true;
+          });
+          await _loadAnalyticsData();
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Welcome Header with Avatar
@@ -338,10 +389,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.notifications_outlined,
-                    color: Colors.white.withOpacity(0.8),
-                    size: 28,
+                  IconButton(
+                    icon: Icon(
+                      Icons.refresh,
+                      color: Colors.white.withOpacity(0.8),
+                      size: 28,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isLoadingAnalytics = true;
+                      });
+                      _loadAnalyticsData();
+                    },
                   ),
                 ],
               ),
@@ -349,44 +408,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 24),
             
             // Stats Cards Grid
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.2,
-              children: [
-                _buildModernStatCard(
-                  'Total Referrals',
-                  '12',
-                  Icons.people_outline,
-                  const Color(0xFF00A8E6), // AT&T Blue
-                  const Color(0xFF0066CC), // AT&T Dark Blue
-                ),
-                _buildModernStatCard(
-                  'This Month',
-                  '3',
-                  Icons.calendar_today_outlined,
-                  const Color(0xFFFF6900), // AT&T Orange
-                  const Color(0xFFFF8A50), // Light Orange
-                ),
-                _buildModernStatCard(
-                  'Conversion Rate',
-                  '75%',
-                  Icons.trending_up_outlined,
-                  const Color(0xFF4FC3F7), // AT&T Light Blue
-                  const Color(0xFF00A8E6), // AT&T Blue
-                ),
-                _buildModernStatCard(
-                  'Total Earnings',
-                  '\$1,250',
-                  Icons.attach_money_outlined,
-                  const Color(0xFF00C853), // Success Green
-                  const Color(0xFF4CAF50), // Light Green
-                ),
-              ],
-            ),
+            _isLoadingAnalytics
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.2,
+                    children: [
+                      _buildModernStatCard(
+                        'Total Referrals',
+                        '${_analyticsData?['totalReferrals'] ?? 0}',
+                        Icons.people_outline,
+                        const Color(0xFF00A8E6), // AT&T Blue
+                        const Color(0xFF0066CC), // AT&T Dark Blue
+                      ),
+                      _buildModernStatCard(
+                        'Installed',
+                        '${_analyticsData?['installedReferrals'] ?? 0}',
+                        Icons.check_circle_outline,
+                        const Color(0xFF00C853), // Success Green
+                        const Color(0xFF4CAF50), // Light Green
+                      ),
+                      _buildModernStatCard(
+                        'Conversion Rate',
+                        '${(_analyticsData?['conversionRate'] ?? 0.0).toStringAsFixed(1)}%',
+                        Icons.trending_up_outlined,
+                        const Color(0xFF4FC3F7), // AT&T Light Blue
+                        const Color(0xFF00A8E6), // AT&T Blue
+                      ),
+                      _buildModernStatCard(
+                        'Total Earnings',
+                        '\$${(_analyticsData?['totalCommissions'] ?? 0.0).toStringAsFixed(2)}',
+                        Icons.attach_money_outlined,
+                        const Color(0xFFFF6900), // AT&T Orange
+                        const Color(0xFFFF8A50), // Light Orange
+                      ),
+                    ],
+                  ),
             const SizedBox(height: 24),
             
             // Recent Activity Section
@@ -459,10 +525,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Recent referrals will appear here',
+                            _analyticsData?['totalReferrals'] == 0
+                                ? 'No referrals yet. Submit your first referral to get started!'
+                                : 'View your referrals in the Referrals tab',
                             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
@@ -472,6 +541,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -555,21 +625,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildReferralsTab(UserModel user) {
-    return const Center(
-      child: Text('Referrals Tab - Coming Soon'),
-    );
+    return const ReferralsListScreen();
   }
 
   Widget _buildSubmitTab(UserModel user) {
-    return const Center(
-      child: Text('Submit Referral Tab - Coming Soon'),
-    );
+    return const SubmitReferralScreen();
   }
 
   Widget _buildAdminTab() {
-    return const Center(
-      child: Text('Admin Panel - Coming Soon'),
-    );
+    return const AdminPanelScreen();
   }
 
   Widget _buildTeamTab() {
@@ -609,21 +673,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _showSettingsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Settings'),
-        content: const Text('Settings panel coming soon'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _handleLogout() {
     showDialog(
@@ -647,4 +697,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+
 }

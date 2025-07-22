@@ -4,7 +4,7 @@ import '../themes/app_themes.dart';
 
 class ThemeProvider extends ChangeNotifier {
   AppThemeType _currentTheme = AppThemeType.corporate;
-  bool _isDarkMode = true;
+  bool _isDarkMode = false;
   String? _companyName;
   String? _companyLogo;
 
@@ -26,9 +26,11 @@ class ThemeProvider extends ChangeNotifier {
       if (themeIndex < AppThemeType.values.length) {
         _currentTheme = AppThemeType.values[themeIndex];
       }
+      debugPrint('🎨 Loaded theme from preferences: ${_currentTheme.name} (index: $themeIndex)');
       
       // Load dark mode preference
-      _isDarkMode = prefs.getBool('is_dark_mode') ?? true;
+      _isDarkMode = prefs.getBool('is_dark_mode') ?? false; // Changed default to false (light mode)
+      debugPrint('🎨 Loaded dark mode from preferences: $_isDarkMode');
       
       // Load company branding
       _companyName = prefs.getString('company_name');
@@ -42,12 +44,14 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> setTheme(AppThemeType theme) async {
     if (_currentTheme != theme) {
+      debugPrint('🎨 Changing theme from ${_currentTheme.name} to ${theme.name}');
       _currentTheme = theme;
       notifyListeners();
       
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('theme_type', theme.index);
+        debugPrint('🎨 Theme saved to preferences: ${theme.index}');
       } catch (e) {
         debugPrint('Error saving theme preference: $e');
       }
