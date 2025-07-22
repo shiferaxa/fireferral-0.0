@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2371357998",
+    "project_id": "fireferral",
+    "storage_bucket": "fireferral.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2371357998:android:29b3c7ba3587d1d20dbebf",
+        "android_client_info": {
+          "package_name": "com.example.fireferral"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbLV7b4Y59psn9eUEJspWwdAPgC_mTOtw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
