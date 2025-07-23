@@ -3,8 +3,8 @@ import 'fiber_package.dart';
 
 enum ReferralStatus {
   submitted('Submitted', 'Just submitted by affiliate'),
-  underReview('Under Review', 'Being reviewed by admin/associate'),
-  approved('Approved', 'Approved for installation'),
+  underReview('In Progress', 'Being reviewed by admin/associate'),
+  approved('Pending Install', 'Approved for installation'),
   scheduled('Scheduled', 'Installation scheduled'),
   installed('Installed', 'Service installed and active'),
   paid('Paid', 'Commission paid out'),
@@ -75,6 +75,7 @@ class CustomerInfo {
 class ReferralModel {
   final String id;
   final String submittedBy; // User ID who submitted
+  final String organizationId; // Organization this referral belongs to
   final CustomerInfo customer;
   final FiberSpeed selectedPackage;
   final double commissionAmount; // Locked at submission time
@@ -90,6 +91,7 @@ class ReferralModel {
   ReferralModel({
     required this.id,
     required this.submittedBy,
+    required this.organizationId,
     required this.customer,
     required this.selectedPackage,
     required this.commissionAmount,
@@ -107,6 +109,7 @@ class ReferralModel {
     return {
       'id': id,
       'submittedBy': submittedBy,
+      'organizationId': organizationId,
       'customer': customer.toMap(),
       'selectedPackage': selectedPackage.name,
       'commissionAmount': commissionAmount,
@@ -125,6 +128,7 @@ class ReferralModel {
     return ReferralModel(
       id: map['id'] ?? '',
       submittedBy: map['submittedBy'] ?? '',
+      organizationId: map['organizationId'] ?? '',
       customer: CustomerInfo.fromMap(map['customer'] ?? {}),
       selectedPackage: FiberSpeed.values.firstWhere(
         (e) => e.name == map['selectedPackage'],
@@ -159,6 +163,7 @@ class ReferralModel {
   ReferralModel copyWith({
     String? id,
     String? submittedBy,
+    String? organizationId,
     CustomerInfo? customer,
     FiberSpeed? selectedPackage,
     double? commissionAmount,
@@ -174,6 +179,7 @@ class ReferralModel {
     return ReferralModel(
       id: id ?? this.id,
       submittedBy: submittedBy ?? this.submittedBy,
+      organizationId: organizationId ?? this.organizationId,
       customer: customer ?? this.customer,
       selectedPackage: selectedPackage ?? this.selectedPackage,
       commissionAmount: commissionAmount ?? this.commissionAmount,

@@ -2,13 +2,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum UserRole { admin, associate, affiliate }
 
+extension UserRoleExtension on UserRole {
+  String get displayName {
+    switch (this) {
+      case UserRole.admin:
+        return 'Administrator';
+      case UserRole.associate:
+        return 'Associate';
+      case UserRole.affiliate:
+        return 'Affiliate';
+    }
+  }
+}
+
 class UserModel {
   final String id;
   final String email;
   final String firstName;
   final String lastName;
   final UserRole role;
+  final String organizationId; // Organization this user belongs to
   final String? associateId; // For affiliates - which associate manages them
+  final String? phone;
+  final String? address;
   final bool isActive;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
@@ -19,7 +35,10 @@ class UserModel {
     required this.firstName,
     required this.lastName,
     required this.role,
+    required this.organizationId,
     this.associateId,
+    this.phone,
+    this.address,
     this.isActive = true,
     required this.createdAt,
     this.lastLoginAt,
@@ -34,7 +53,10 @@ class UserModel {
       'firstName': firstName,
       'lastName': lastName,
       'role': role.name,
+      'organizationId': organizationId,
       'associateId': associateId,
+      'phone': phone,
+      'address': address,
       'isActive': isActive,
       'createdAt': createdAt.toIso8601String(),
       'lastLoginAt': lastLoginAt?.toIso8601String(),
@@ -51,7 +73,10 @@ class UserModel {
         (e) => e.name == map['role'],
         orElse: () => UserRole.affiliate,
       ),
+      organizationId: map['organizationId'] ?? '',
       associateId: map['associateId'],
+      phone: map['phone'],
+      address: map['address'],
       isActive: map['isActive'] ?? true,
       createdAt: DateTime.parse(map['createdAt']),
       lastLoginAt: map['lastLoginAt'] != null 
@@ -71,7 +96,10 @@ class UserModel {
     String? firstName,
     String? lastName,
     UserRole? role,
+    String? organizationId,
     String? associateId,
+    String? phone,
+    String? address,
     bool? isActive,
     DateTime? createdAt,
     DateTime? lastLoginAt,
@@ -82,7 +110,10 @@ class UserModel {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       role: role ?? this.role,
+      organizationId: organizationId ?? this.organizationId,
       associateId: associateId ?? this.associateId,
+      phone: phone ?? this.phone,
+      address: address ?? this.address,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,

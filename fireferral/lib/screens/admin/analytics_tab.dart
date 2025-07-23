@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../../services/referral_service.dart';
+import '../../providers/auth_provider.dart';
 
 class AnalyticsTab extends StatefulWidget {
   const AnalyticsTab({super.key});
@@ -25,7 +27,9 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
     setState(() => _isLoading = true);
     
     try {
-      final data = await _referralService.getAnalyticsData();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final user = authProvider.currentUser!;
+      final data = await _referralService.getAnalyticsData(organizationId: user.organizationId);
       setState(() {
         _analyticsData = data;
         _isLoading = false;

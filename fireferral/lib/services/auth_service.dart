@@ -42,6 +42,7 @@ class AuthService {
     required String firstName,
     required String lastName,
     required UserRole role,
+    required String organizationId,
     String? associateId,
   }) async {
     try {
@@ -57,6 +58,7 @@ class AuthService {
           firstName: firstName,
           lastName: lastName,
           role: role,
+          organizationId: organizationId,
           associateId: associateId,
           createdAt: DateTime.now(),
         );
@@ -94,12 +96,13 @@ class AuthService {
     }
   }
 
-  // Get users by role
-  Future<List<UserModel>> getUsersByRole(UserRole role) async {
+  // Get users by role within organization
+  Future<List<UserModel>> getUsersByRole(UserRole role, String organizationId) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: role.name)
+          .where('organizationId', isEqualTo: organizationId)
           .where('isActive', isEqualTo: true)
           .get();
 
@@ -109,13 +112,14 @@ class AuthService {
     }
   }
 
-  // Get affiliates by associate
-  Future<List<UserModel>> getAffiliatesByAssociate(String associateId) async {
+  // Get affiliates by associate within organization
+  Future<List<UserModel>> getAffiliatesByAssociate(String associateId, String organizationId) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: UserRole.affiliate.name)
           .where('associateId', isEqualTo: associateId)
+          .where('organizationId', isEqualTo: organizationId)
           .where('isActive', isEqualTo: true)
           .get();
 
@@ -189,6 +193,7 @@ class AuthService {
     required String password,
     required String firstName,
     required String lastName,
+    required String organizationId,
   }) async {
     try {
       // Check if admin already exists
@@ -204,6 +209,7 @@ class AuthService {
         firstName: firstName,
         lastName: lastName,
         role: UserRole.admin,
+        organizationId: organizationId,
       );
       
       return result;

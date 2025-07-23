@@ -1,4 +1,5 @@
 enum FiberSpeed { 
+  skip('Skip Package Selection', 0),
   speed300mb('300MB', 300),
   speed500mb('500MB', 500),
   speed1gb('1GB', 1000),
@@ -75,8 +76,16 @@ class FiberPackage {
   static List<FiberPackage> getDefaultPackages() {
     return [
       FiberPackage(
+        speed: FiberSpeed.skip,
+        monthlyPrice: 0.0,
+        affiliateCommission: 50.0,
+        associateCommission: 75.0,
+        description: 'Customer will choose package during installation',
+        features: ['Deferred selection'],
+      ),
+      FiberPackage(
         speed: FiberSpeed.speed300mb,
-        monthlyPrice: 39.99,
+        monthlyPrice: 0.0,
         affiliateCommission: 50.0,
         associateCommission: 75.0,
         description: 'Perfect for basic browsing and streaming',
@@ -84,7 +93,7 @@ class FiberPackage {
       ),
       FiberPackage(
         speed: FiberSpeed.speed500mb,
-        monthlyPrice: 49.99,
+        monthlyPrice: 0.0,
         affiliateCommission: 75.0,
         associateCommission: 100.0,
         description: 'Great for families and multiple devices',
@@ -92,7 +101,7 @@ class FiberPackage {
       ),
       FiberPackage(
         speed: FiberSpeed.speed1gb,
-        monthlyPrice: 69.99,
+        monthlyPrice: 0.0,
         affiliateCommission: 100.0,
         associateCommission: 125.0,
         description: 'High-speed for power users and gaming',
@@ -100,7 +109,7 @@ class FiberPackage {
       ),
       FiberPackage(
         speed: FiberSpeed.speed2gb,
-        monthlyPrice: 99.99,
+        monthlyPrice: 0.0,
         affiliateCommission: 150.0,
         associateCommission: 200.0,
         description: 'Ultra-fast for businesses and heavy users',
@@ -108,7 +117,7 @@ class FiberPackage {
       ),
       FiberPackage(
         speed: FiberSpeed.speed5gb,
-        monthlyPrice: 149.99,
+        monthlyPrice: 0.0,
         affiliateCommission: 250.0,
         associateCommission: 300.0,
         description: 'Maximum speed for enterprise needs',

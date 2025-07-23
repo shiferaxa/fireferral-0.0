@@ -45,6 +45,7 @@ class _SignupScreenState extends State<SignupScreen> {
       password: _passwordController.text,
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
+      organizationId: 'temp-org-id', // This will be replaced with actual organization ID
     );
 
     setState(() {

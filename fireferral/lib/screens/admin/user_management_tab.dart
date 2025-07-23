@@ -27,10 +27,17 @@ class _UserManagementTabState extends State<UserManagementTab> {
     setState(() => _isLoading = true);
     
     try {
-      // Get all users (admin only functionality)
-      final associates = await _authService.getUsersByRole(UserRole.associate);
-      final affiliates = await _authService.getUsersByRole(UserRole.affiliate);
-      final admins = await _authService.getUsersByRole(UserRole.admin);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.currentUser;
+      
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      // Get all users within the same organization
+      final associates = await _authService.getUsersByRole(UserRole.associate, currentUser.organizationId);
+      final affiliates = await _authService.getUsersByRole(UserRole.affiliate, currentUser.organizationId);
+      final admins = await _authService.getUsersByRole(UserRole.admin, currentUser.organizationId);
       
       setState(() {
         _users = [...admins, ...associates, ...affiliates];
@@ -371,6 +378,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
                     firstName: firstNameController.text,
                     lastName: lastNameController.text,
                     role: selectedRole,
+                    organizationId: authProvider.currentUser!.organizationId,
                   );
                   
                   if (mounted) {

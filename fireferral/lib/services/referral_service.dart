@@ -14,6 +14,7 @@ class ReferralService {
     required CustomerInfo customer,
     required FiberSpeed selectedPackage,
     required double commissionAmount,
+    required String organizationId,
     String? notes,
   }) async {
     try {
@@ -28,6 +29,7 @@ class ReferralService {
         status: ReferralStatus.submitted,
         submittedAt: DateTime.now(),
         statusHistory: ['${DateTime.now().toIso8601String()}: Referral submitted'],
+        organizationId: organizationId,
       );
 
       await _firestore.collection('referrals').doc(referralId).set(referral.toMap());
@@ -39,46 +41,61 @@ class ReferralService {
   }
 
   // Get referrals by user
-  Future<List<ReferralModel>> getReferralsByUser(String userId) async {
+  Future<List<ReferralModel>> getReferralsByUser(String userId, String organizationId) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('referrals')
           .where('submittedBy', isEqualTo: userId)
-          .orderBy('submittedAt', descending: true)
+          .where('organizationId', isEqualTo: organizationId)
           .get();
 
-      return snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      
+      // Sort by submittedAt in descending order (newest first)
+      referrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      return referrals;
     } catch (e) {
       throw Exception('Failed to get referrals: ${e.toString()}');
     }
   }
 
-  // Get all referrals (Admin only)
-  Future<List<ReferralModel>> getAllReferrals() async {
+  // Get all referrals within organization (Admin only)
+  Future<List<ReferralModel>> getAllReferrals(String organizationId) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('referrals')
-          .orderBy('submittedAt', descending: true)
+          .where('organizationId', isEqualTo: organizationId)
           .get();
 
-      return snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      
+      // Sort by submittedAt in memory to avoid index requirement
+      referrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      return referrals;
     } catch (e) {
       throw Exception('Failed to get all referrals: ${e.toString()}');
     }
   }
 
   // Get referrals by associate's affiliates
-  Future<List<ReferralModel>> getReferralsByAssociateTeam(String associateId, List<String> affiliateIds) async {
+  Future<List<ReferralModel>> getReferralsByAssociateTeam(String associateId, List<String> affiliateIds, String organizationId) async {
     try {
       if (affiliateIds.isEmpty) return [];
       
       final QuerySnapshot snapshot = await _firestore
           .collection('referrals')
           .where('submittedBy', whereIn: affiliateIds)
-          .orderBy('submittedAt', descending: true)
+          .where('organizationId', isEqualTo: organizationId)
           .get();
 
-      return snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      
+      // Sort by submittedAt in memory to avoid index requirement
+      referrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      return referrals;
     } catch (e) {
       throw Exception('Failed to get team referrals: ${e.toString()}');
     }
@@ -143,46 +160,62 @@ class ReferralService {
     }
   }
 
-  // Get referrals by status
-  Future<List<ReferralModel>> getReferralsByStatus(ReferralStatus status) async {
+  // Get referrals by status within organization
+  Future<List<ReferralModel>> getReferralsByStatus(ReferralStatus status, String organizationId) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('referrals')
           .where('status', isEqualTo: status.name)
-          .orderBy('submittedAt', descending: true)
+          .where('organizationId', isEqualTo: organizationId)
           .get();
 
-      return snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      
+      // Sort by submittedAt in memory to avoid index requirement
+      referrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      return referrals;
     } catch (e) {
       throw Exception('Failed to get referrals by status: ${e.toString()}');
     }
   }
 
-  // Get referrals in date range
+  // Get referrals in date range within organization
   Future<List<ReferralModel>> getReferralsInDateRange({
     required DateTime startDate,
     required DateTime endDate,
+    required String organizationId,
     String? userId,
   }) async {
     try {
-      Query query = _firestore.collection('referrals')
-          .where('submittedAt', isGreaterThanOrEqualTo: startDate.toIso8601String())
-          .where('submittedAt', isLessThanOrEqualTo: endDate.toIso8601String());
+      // First get all referrals for the organization
+      final QuerySnapshot snapshot = await _firestore
+          .collection('referrals')
+          .where('organizationId', isEqualTo: organizationId)
+          .get();
 
-      if (userId != null) {
-        query = query.where('submittedBy', isEqualTo: userId);
-      }
-
-      final QuerySnapshot snapshot = await query.orderBy('submittedAt', descending: true).get();
-
-      return snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+      
+      // Filter by date range and user in memory
+      final filteredReferrals = referrals.where((referral) {
+        final isInDateRange = referral.submittedAt.isAfter(startDate.subtract(const Duration(days: 1))) &&
+                             referral.submittedAt.isBefore(endDate.add(const Duration(days: 1)));
+        final matchesUser = userId == null || referral.submittedBy == userId;
+        return isInDateRange && matchesUser;
+      }).toList();
+      
+      // Sort by submittedAt in memory
+      filteredReferrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      return filteredReferrals;
     } catch (e) {
       throw Exception('Failed to get referrals in date range: ${e.toString()}');
     }
   }
 
-  // Get analytics data
+  // Get analytics data within organization
   Future<Map<String, dynamic>> getAnalyticsData({
+    required String organizationId,
     DateTime? startDate,
     DateTime? endDate,
     String? userId,
@@ -194,12 +227,13 @@ class ReferralService {
         referrals = await getReferralsInDateRange(
           startDate: startDate,
           endDate: endDate,
+          organizationId: organizationId,
           userId: userId,
         );
       } else if (userId != null) {
-        referrals = await getReferralsByUser(userId);
+        referrals = await getReferralsByUser(userId, organizationId);
       } else {
-        referrals = await getAllReferrals();
+        referrals = await getAllReferrals(organizationId);
       }
 
       final totalReferrals = referrals.length;
@@ -245,20 +279,30 @@ class ReferralService {
   }
 
   // Stream referrals for real-time updates
-  Stream<List<ReferralModel>> streamReferralsByUser(String userId) {
+  Stream<List<ReferralModel>> streamReferralsByUser(String userId, String organizationId) {
     return _firestore
         .collection('referrals')
         .where('submittedBy', isEqualTo: userId)
-        .orderBy('submittedAt', descending: true)
+        .where('organizationId', isEqualTo: organizationId)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList());
+        .map((snapshot) {
+          final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+          // Sort by submittedAt in memory
+          referrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+          return referrals;
+        });
   }
 
-  Stream<List<ReferralModel>> streamAllReferrals() {
+  Stream<List<ReferralModel>> streamAllReferrals(String organizationId) {
     return _firestore
         .collection('referrals')
-        .orderBy('submittedAt', descending: true)
+        .where('organizationId', isEqualTo: organizationId)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList());
+        .map((snapshot) {
+          final referrals = snapshot.docs.map((doc) => ReferralModel.fromFirestore(doc)).toList();
+          // Sort by submittedAt in memory
+          referrals.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+          return referrals;
+        });
   }
 }

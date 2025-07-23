@@ -25,7 +25,7 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
   final _zipController = TextEditingController();
   final _notesController = TextEditingController();
   
-  FiberSpeed _selectedPackage = FiberSpeed.speed1gb;
+  FiberSpeed _selectedPackage = FiberSpeed.skip;
   bool _isLoading = false;
   int _currentStep = 0;
   
@@ -94,6 +94,7 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
         customer: customerInfo,
         selectedPackage: _selectedPackage,
         commissionAmount: commissionAmount,
+        organizationId: user.organizationId,
       );
       
       if (mounted) {
@@ -108,7 +109,7 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
         _formKey.currentState?.reset();
         setState(() {
           _currentStep = 0;
-          _selectedPackage = FiberSpeed.speed1gb;
+          _selectedPackage = FiberSpeed.skip;
         });
       }
     } catch (e) {
@@ -376,18 +377,125 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
   }
 
   Widget _buildPackageSelectionStep() {
+    final skipPackage = _packages.firstWhere((p) => p.speed == FiberSpeed.skip);
+    final regularPackages = _packages.where((p) => p.speed != FiberSpeed.skip).toList();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Select Fiber Package',
+          'Select Fiber Package (Optional)',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
+        const SizedBox(height: 8),
+        Text(
+          'You can skip package selection and let the customer choose during installation.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
         const SizedBox(height: 16),
-        ..._packages.map((package) => _buildPackageCard(package)),
+        
+        // Skip option - compact style
+        _buildSkipCard(skipPackage),
+        const SizedBox(height: 16),
+        
+        // Divider
+        Row(
+          children: [
+            Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'OR CHOOSE A SPECIFIC PACKAGE',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        // Regular packages
+        ...regularPackages.map((package) => _buildPackageCard(package)),
       ],
+    );
+  }
+
+  Widget _buildSkipCard(FiberPackage package) {
+    final isSelected = _selectedPackage == package.speed;
+    final user = Provider.of<AuthProvider>(context, listen: false).currentUser!;
+    final commission = user.role == UserRole.associate 
+        ? package.associateCommission
+        : package.affiliateCommission;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: isSelected ? 4 : 1,
+      color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _selectedPackage = package.speed),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Radio<FiberSpeed>(
+                value: package.speed,
+                groupValue: _selectedPackage,
+                onChanged: (value) => setState(() => _selectedPackage = value!),
+                activeColor: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.schedule,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Skip Package Selection',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                    ),
+                    Text(
+                      package.description,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'Commission: \$${commission.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -457,7 +565,7 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '\$${package.monthlyPrice.toStringAsFixed(2)}/mo',
+                    'Speed: ${package.speed.displayName}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

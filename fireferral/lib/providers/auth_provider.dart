@@ -14,6 +14,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _currentUser != null;
   String? get errorMessage => _errorMessage;
+  AuthService get authService => _authService;
 
   AuthProvider() {
     _initializeAuth();
@@ -69,6 +70,7 @@ class AuthProvider extends ChangeNotifier {
     required String firstName,
     required String lastName,
     required UserRole role,
+    required String organizationId,
     String? associateId,
   }) async {
     try {
@@ -80,6 +82,7 @@ class AuthProvider extends ChangeNotifier {
         firstName: firstName,
         lastName: lastName,
         role: role,
+        organizationId: organizationId,
         associateId: associateId,
       );
       
@@ -101,6 +104,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String firstName,
     required String lastName,
+    required String organizationId,
   }) async {
     try {
       _errorMessage = null;
@@ -110,6 +114,7 @@ class AuthProvider extends ChangeNotifier {
         password: password,
         firstName: firstName,
         lastName: lastName,
+        organizationId: organizationId,
       );
       
       if (newUser != null) {
@@ -162,6 +167,18 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> refreshUserData() async {
+    if (_currentUser != null) {
+      try {
+        _currentUser = await _authService.getUserData(_currentUser!.id);
+        notifyListeners();
+      } catch (e) {
+        _errorMessage = e.toString();
+        notifyListeners();
+      }
+    }
   }
 
   // Helper methods for role checking

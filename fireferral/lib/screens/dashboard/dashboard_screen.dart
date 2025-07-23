@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/user_model.dart';
+
 import '../../services/referral_service.dart';
 import '../referrals/referrals_list_screen.dart';
 import '../referrals/submit_referral_screen.dart';
 import '../admin/admin_panel_screen.dart';
 import '../settings/settings_screen.dart';
+import '../profile/profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -33,14 +35,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
       
-      if (user != null) {
-        final data = await _referralService.getAnalyticsData(
-          userId: user.role == UserRole.admin ? null : user.id,
-        );
+      if (user != null && user.role == UserRole.admin) {
+        // Only admin users see analytics
+        final data = await _referralService.getAnalyticsData(organizationId: user.organizationId);
         
         if (mounted) {
           setState(() {
             _analyticsData = data;
+            _isLoadingAnalytics = false;
+          });
+        }
+      } else {
+        // Non-admin users don't see analytics
+        if (mounted) {
+          setState(() {
+            _analyticsData = null;
             _isLoadingAnalytics = false;
           });
         }
@@ -50,9 +59,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _isLoadingAnalytics = false;
         });
+        if (Provider.of<AuthProvider>(context, listen: false).currentUser?.role == UserRole.admin) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error loading analytics: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +141,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onSelected: (value) {
                   switch (value) {
                     case 'profile':
-                      _showProfileDialog(user);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const ProfileScreen(),
+                        ),
+                      );
                       break;
                     case 'settings':
                       if (authProvider.isAdmin) {
@@ -222,9 +245,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 3:
         if (user.role == UserRole.admin) {
           return _buildAdminTab();
-        } else if (user.role == UserRole.associate) {
-          return _buildTeamTab();
         } else {
+          // Both associates and affiliates get profile tab
           return _buildProfileTab(user);
         }
       default:
@@ -254,12 +276,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icon(Icons.admin_panel_settings),
         label: 'Admin',
       ));
-    } else if (user.role == UserRole.associate) {
-      items.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.group),
-        label: 'Team',
-      ));
     } else {
+      // Both associates and affiliates get profile tab
       items.add(const BottomNavigationBarItem(
         icon: Icon(Icons.person),
         label: 'Profile',
@@ -296,6 +314,205 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboardTab(UserModel user) {
+    if (user.role == UserRole.admin) {
+      return _buildAdminDashboard(user);
+    } else {
+      return _buildUserDashboard(user);
+    }
+  }
+
+  Widget _buildUserDashboard(UserModel user) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.surface,
+            Theme.of(context).colorScheme.surface.withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Welcome Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00A8E6), Color(0xFF0066CC)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00A8E6).withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.2),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        user.firstName[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome back,',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          user.firstName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          user.role.displayName,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            
+            // Quick Actions
+            Text(
+              'Quick Actions',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    'View My Referrals',
+                    'Check the status of your submitted referrals',
+                    Icons.list_alt,
+                    const Color(0xFF00A8E6),
+                    () => setState(() => _selectedIndex = 1),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildActionCard(
+                    'Submit New Referral',
+                    'Add a new customer referral',
+                    Icons.add_circle_outline,
+                    const Color(0xFF00C853),
+                    () => setState(() => _selectedIndex = 2),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    'My Profile',
+                    'View and edit your profile information',
+                    Icons.person_outline,
+                    const Color(0xFFFF6900),
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ProfileScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Container(), // Empty space for symmetry
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            
+            // Information Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'How it works',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '1. Submit customer referrals using the "Submit" tab\n'
+                    '2. Track the status of your referrals in the "Referrals" tab\n'
+                    '3. Earn commissions when referrals are successfully installed\n'
+                    '4. Update your profile information as needed',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminDashboard(UserModel user) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -636,44 +853,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return const AdminPanelScreen();
   }
 
-  Widget _buildTeamTab() {
-    return const Center(
-      child: Text('Team Management - Coming Soon'),
-    );
-  }
+
 
   Widget _buildProfileTab(UserModel user) {
-    return const Center(
-      child: Text('Profile Tab - Coming Soon'),
-    );
+    return const ProfileScreen();
   }
 
-  void _showProfileDialog(UserModel user) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Name: ${user.fullName}'),
-            Text('Email: ${user.email}'),
-            Text('Role: ${user.role.name.toUpperCase()}'),
-            Text('Member since: ${user.createdAt.toString().split(' ')[0]}'),
+
+
+
+  Widget _buildActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-
-
 
   void _handleLogout() {
     showDialog(

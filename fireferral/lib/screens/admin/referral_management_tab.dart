@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/referral_model.dart';
 import '../../models/user_model.dart';
 import '../../services/referral_service.dart';
 import '../../services/auth_service.dart';
+import '../../providers/auth_provider.dart';
 
 class ReferralManagementTab extends StatefulWidget {
   const ReferralManagementTab({super.key});
@@ -31,8 +33,11 @@ class _ReferralManagementTabState extends State<ReferralManagementTab> {
     setState(() => _isLoading = true);
 
     try {
-      // Load all referrals
-      final referrals = await _referralService.getAllReferrals();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final user = authProvider.currentUser!;
+      
+      // Load all referrals within organization
+      final referrals = await _referralService.getAllReferrals(user.organizationId);
 
       // Load user data for referral submitters
       final userIds = referrals.map((r) => r.submittedBy).toSet();
