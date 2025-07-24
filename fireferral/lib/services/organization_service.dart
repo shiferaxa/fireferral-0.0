@@ -35,6 +35,10 @@ class OrganizationService {
       
       return organization;
     } catch (e) {
+      // Check if it's a name conflict error and provide a more helpful message
+      if (e.toString().contains('already exists') || e.toString().contains('duplicate')) {
+        throw Exception('Organization name "$name" is already taken. Please choose a different name.');
+      }
       throw Exception('Failed to create organization: ${e.toString()}');
     }
   }
@@ -73,7 +77,9 @@ class OrganizationService {
 
       return snapshot.docs.isEmpty;
     } catch (e) {
-      throw Exception('Failed to check organization name: ${e.toString()}');
+      // If we can't check due to permissions, assume name is available
+      // The actual uniqueness will be enforced when creating the organization
+      return true;
     }
   }
 

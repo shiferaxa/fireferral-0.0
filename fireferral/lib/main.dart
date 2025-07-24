@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/app_state_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
+import 'screens/auth/organization_signup_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/splash_screen.dart';
 import 'themes/app_themes.dart';
@@ -18,15 +20,39 @@ void main() async {
   runApp(const FireferralApp());
 }
 
-class FireferralApp extends StatelessWidget {
+class FireferralApp extends StatefulWidget {
   const FireferralApp({super.key});
+
+  @override
+  State<FireferralApp> createState() => _FireferralAppState();
+}
+
+class _FireferralAppState extends State<FireferralApp> {
+  late AuthProvider _authProvider;
+  late ThemeProvider _themeProvider;
+  
+  @override
+  void initState() {
+    super.initState();
+    _authProvider = AuthProvider();
+    _themeProvider = ThemeProvider();
+    
+    // Initialize app state coordination
+    AppStateService.instance.initialize(_themeProvider, _authProvider);
+  }
+  
+  @override
+  void dispose() {
+    AppStateService.instance.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider.value(value: _authProvider),
+        ChangeNotifierProvider.value(value: _themeProvider),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, child) {
@@ -61,7 +87,8 @@ class FireferralApp extends StatelessWidget {
         // Redirect to login if not authenticated
         if (!isLoggedIn &&
             state.matchedLocation != '/login' &&
-            state.matchedLocation != '/signup') {
+            state.matchedLocation != '/signup' &&
+            state.matchedLocation != '/organization-signup') {
           return '/login';
         }
 
@@ -69,7 +96,8 @@ class FireferralApp extends StatelessWidget {
         if (isLoggedIn &&
             (state.matchedLocation == '/login' ||
                 state.matchedLocation == '/splash' ||
-                state.matchedLocation == '/signup')) {
+                state.matchedLocation == '/signup' ||
+                state.matchedLocation == '/organization-signup')) {
           return '/dashboard';
         }
 
@@ -87,6 +115,10 @@ class FireferralApp extends StatelessWidget {
         GoRoute(
           path: '/signup',
           builder: (context, state) => const SignupScreen(),
+        ),
+        GoRoute(
+          path: '/organization-signup',
+          builder: (context, state) => const OrganizationSignupScreen(),
         ),
         GoRoute(
           path: '/dashboard',

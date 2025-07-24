@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/organization_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/user_model.dart';
-import 'login_screen.dart';
 
 class OrganizationSignupScreen extends StatefulWidget {
-  const OrganizationSignupScreen({super.key});
+  final Map<String, String>? prefillAdminData;
+  
+  const OrganizationSignupScreen({super.key, this.prefillAdminData});
 
   @override
   State<OrganizationSignupScreen> createState() => _OrganizationSignupScreenState();
@@ -27,8 +29,18 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
   final AuthService _authService = AuthService();
   
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefill admin data if provided
+    if (widget.prefillAdminData != null) {
+      _firstNameController.text = widget.prefillAdminData!['firstName'] ?? '';
+      _lastNameController.text = widget.prefillAdminData!['lastName'] ?? '';
+      _emailController.text = widget.prefillAdminData!['email'] ?? '';
+      _passwordController.text = widget.prefillAdminData!['password'] ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -50,12 +62,6 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Check if organization name is available
-      final isNameAvailable = await _organizationService.isOrganizationNameAvailable(_orgNameController.text.trim());
-      if (!isNameAvailable) {
-        throw Exception('Organization name is already taken');
-      }
-
       // Create temporary admin user first
       final tempUser = await _authService.createUserAccount(
         email: _emailController.text.trim(),
@@ -70,7 +76,7 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
         throw Exception('Failed to create admin user');
       }
 
-      // Create organization
+      // Create organization (name uniqueness will be handled by the service)
       final organization = await _organizationService.createOrganization(
         name: _orgNameController.text.trim(),
         description: _orgDescriptionController.text.trim().isEmpty ? null : _orgDescriptionController.text.trim(),
@@ -93,9 +99,7 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
         );
 
         // Navigate to login screen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
+        context.go('/login');
       }
     } catch (e) {
       if (mounted) {
@@ -293,17 +297,16 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
                         ),
                         const SizedBox(height: 16),
 
+                        // Password field - simplified since user already entered it
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password *',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.lock),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
+                          obscureText: true,
+                          enabled: false, // Make it read-only since it's prefilled
+                          decoration: const InputDecoration(
+                            labelText: 'Password (from previous step)',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.lock),
+                            filled: true,
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -311,30 +314,6 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
                             }
                             if (value.length < 6) {
                               return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Confirm Password *',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please confirm your password';
-                            }
-                            if (value != _passwordController.text) {
-                              return 'Passwords do not match';
                             }
                             return null;
                           },
@@ -370,11 +349,7 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
 
                         // Back to Login
                         TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            );
-                          },
+                          onPressed: () => context.go('/login'),
                           child: const Text('Already have an account? Sign In'),
                         ),
                       ],

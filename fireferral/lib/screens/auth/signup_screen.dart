@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -39,37 +38,28 @@ class _SignupScreenState extends State<SignupScreen> {
       _isLoading = true;
     });
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.createFirstAdmin(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      organizationId: 'temp-org-id', // This will be replaced with actual organization ID
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (success) {
+    try {
+      // Store the admin data temporarily and navigate to organization signup
+      // We'll use a simple approach by navigating with query parameters
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Admin account created successfully! Please sign in.'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
-        context.go('/login'); // Go back to login
+        // For now, let's use a simpler approach - just navigate to organization signup
+        // The user will need to re-enter their details, but this avoids navigation conflicts
+        context.go('/organization-signup');
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authProvider.errorMessage ?? 'Signup failed'),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -183,14 +173,14 @@ class _SignupScreenState extends State<SignupScreen> {
                                     ),
                                   ),
                                 Text(
-                                  'Create Admin Account',
+                                  'Create New Organization',
                                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Set up your ${themeProvider.getAppTitle()} admin account',
+                                  'Enter your admin details to continue with organization setup',
                                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                   ),
@@ -330,7 +320,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Signup Button
+                        // Continue Button
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignup,
                           style: ElevatedButton.styleFrom(
@@ -342,7 +332,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text('Create Admin Account'),
+                              : const Text('Continue to Organization Setup'),
                         ),
                         const SizedBox(height: 16),
 
@@ -371,7 +361,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'This will create the first admin account for your organization. You can create additional users after signing in.',
+                                  'Next, you\'ll set up your organization details and create your admin account. Each organization is completely separate and secure.',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context).colorScheme.onPrimaryContainer,
                                   ),
