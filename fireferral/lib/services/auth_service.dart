@@ -15,19 +15,22 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   // Sign in with email and password
-  Future<UserModel?> signInWithEmailAndPassword(String email, String password) async {
+  Future<UserModel?> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
       final UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       if (result.user != null) {
         // Update last login time
         await _firestore.collection('users').doc(result.user!.uid).update({
           'lastLoginAt': DateTime.now().toIso8601String(),
         });
-        
+
         // Get user data
         return await getUserData(result.user!.uid);
       }
@@ -42,14 +45,15 @@ class AuthService {
     try {
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         // User canceled the sign-in
         return null;
       }
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -58,12 +62,14 @@ class AuthService {
       );
 
       // Sign in to Firebase with the Google credential
-      final UserCredential result = await _auth.signInWithCredential(credential);
-      
+      final UserCredential result = await _auth.signInWithCredential(
+        credential,
+      );
+
       if (result.user != null) {
         // Check if user exists in our database
         final existingUser = await getUserData(result.user!.uid);
-        
+
         if (existingUser != null) {
           // Update last login time
           await _firestore.collection('users').doc(result.user!.uid).update({
@@ -75,7 +81,9 @@ class AuthService {
           // We'll return null to indicate they need to go through the signup flow
           await _auth.signOut();
           await _googleSignIn.signOut();
-          throw Exception('Account not found. Please complete the signup process first.');
+          throw Exception(
+            'Account not found. Please complete the signup process first.',
+          );
         }
       }
       return null;
@@ -95,14 +103,15 @@ class AuthService {
     try {
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         // User canceled the sign-in
         return null;
       }
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -111,14 +120,18 @@ class AuthService {
       );
 
       // Sign in to Firebase with the Google credential
-      final UserCredential result = await _auth.signInWithCredential(credential);
-      
+      final UserCredential result = await _auth.signInWithCredential(
+        credential,
+      );
+
       if (result.user != null) {
         // Check if user already exists
         final existingUser = await getUserData(result.user!.uid);
-        
+
         if (existingUser != null) {
-          throw Exception('Account already exists. Please use sign in instead.');
+          throw Exception(
+            'Account already exists. Please use sign in instead.',
+          );
         }
 
         // Create new user record
@@ -134,8 +147,11 @@ class AuthService {
         );
 
         // Save user data to Firestore
-        await _firestore.collection('users').doc(result.user!.uid).set(userModel.toMap());
-        
+        await _firestore
+            .collection('users')
+            .doc(result.user!.uid)
+            .set(userModel.toMap());
+
         return userModel;
       }
       return null;
@@ -173,8 +189,11 @@ class AuthService {
         );
 
         // Save user data to Firestore
-        await _firestore.collection('users').doc(result.user!.uid).set(userModel.toMap());
-        
+        await _firestore
+            .collection('users')
+            .doc(result.user!.uid)
+            .set(userModel.toMap());
+
         return userModel;
       }
       return null;
@@ -186,7 +205,10 @@ class AuthService {
   // Get user data from Firestore
   Future<UserModel?> getUserData(String uid) async {
     try {
-      final DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      final DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
       if (doc.exists) {
         return UserModel.fromFirestore(doc);
       }
@@ -206,7 +228,10 @@ class AuthService {
   }
 
   // Get users by role within organization
-  Future<List<UserModel>> getUsersByRole(UserRole role, String organizationId) async {
+  Future<List<UserModel>> getUsersByRole(
+    UserRole role,
+    String organizationId,
+  ) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
@@ -222,7 +247,10 @@ class AuthService {
   }
 
   // Get affiliates by associate within organization
-  Future<List<UserModel>> getAffiliatesByAssociate(String associateId, String organizationId) async {
+  Future<List<UserModel>> getAffiliatesByAssociate(
+    String associateId,
+    String organizationId,
+  ) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
@@ -260,9 +288,7 @@ class AuthService {
   // Deactivate user account
   Future<void> deactivateUser(String uid) async {
     try {
-      await _firestore.collection('users').doc(uid).update({
-        'isActive': false,
-      });
+      await _firestore.collection('users').doc(uid).update({'isActive': false});
     } catch (e) {
       throw Exception('Failed to deactivate user: ${e.toString()}');
     }
@@ -271,9 +297,7 @@ class AuthService {
   // Reactivate user account
   Future<void> reactivateUser(String uid) async {
     try {
-      await _firestore.collection('users').doc(uid).update({
-        'isActive': true,
-      });
+      await _firestore.collection('users').doc(uid).update({'isActive': true});
     } catch (e) {
       throw Exception('Failed to reactivate user: ${e.toString()}');
     }
@@ -308,7 +332,7 @@ class AuthService {
     try {
       // Check if admin already exists
       final hasAdmin = await hasAdminUser();
-      
+
       if (hasAdmin) {
         throw Exception('Admin account already exists');
       }
@@ -321,7 +345,7 @@ class AuthService {
         role: UserRole.admin,
         organizationId: organizationId,
       );
-      
+
       return result;
     } catch (e) {
       throw Exception('Failed to create first admin: ${e.toString()}');
