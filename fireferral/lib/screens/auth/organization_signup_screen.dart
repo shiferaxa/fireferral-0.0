@@ -297,26 +297,18 @@ class _OrganizationSignupScreenState extends State<OrganizationSignupScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Password field - simplified since user already entered it
+                        // Password field - read-only since user already entered it
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
-                          enabled: false, // Make it read-only since it's prefilled
+                          enabled: false,
                           decoration: const InputDecoration(
                             labelText: 'Password (from previous step)',
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.lock),
                             filled: true,
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Password is required';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
+                          // No validator needed since it's disabled and prefilled
                         ),
                         const SizedBox(height: 32),
 

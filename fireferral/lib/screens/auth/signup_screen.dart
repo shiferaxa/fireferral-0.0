@@ -39,12 +39,51 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     try {
-      // Store the admin data temporarily and navigate to organization signup
-      // We'll use a simple approach by navigating with query parameters
+      // Navigate to organization signup with admin data
       if (mounted) {
-        // For now, let's use a simpler approach - just navigate to organization signup
-        // The user will need to re-enter their details, but this avoids navigation conflicts
-        context.go('/organization-signup');
+        // Use GoRouter extra parameter to pass data
+        context.go('/organization-signup', extra: {
+          'firstName': _firstNameController.text.trim(),
+          'lastName': _lastNameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleGoogleSignup() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Navigate to organization signup with Google data
+      if (mounted) {
+        context.go('/organization-signup', extra: {
+          'firstName': _firstNameController.text.trim(),
+          'lastName': _lastNameController.text.trim(),
+          'email': '', // Will be filled from Google account
+          'password': '', // Not needed for Google signup
+          'isGoogleSignup': 'true',
+        });
       }
     } catch (e) {
       if (mounted) {

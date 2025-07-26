@@ -1,0 +1,129 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isActiveUser() {
+      return isAuthenticated() && getUserData().isActive == true;
+    }
+    
+    function isSameOrganization(orgId) {
+      return isAuthenticated() && getUserData().organizationId == orgId;
+    }
+    
+    function isValidImageFile() {
+      return request.resource.contentType.matches('image/.*') &&
+             request.resource.size < 5 * 1024 * 1024; // 5MB limit
+    }
+    
+    function isValidDocumentFile() {
+      return request.resource.contentType.matches('(image/.*|application/pdf|text/.*|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document)') &&
+             request.resource.size < 10 * 1024 * 1024; // 10MB limit
+    }
+    
+    // User profile pictures
+    match /users/{userId}/profile/{fileName} {
+      // Users can upload their own profile picture
+      allow write: if isAuthenticated() && 
+        isActiveUser() &&
+        request.auth.uid == userId &&
+        isValidImageFile();
+      
+      // Users can read their own profile picture
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        request.auth.uid == userId;
+      
+      // Admins can read profile pictures in their organization
+      allow read: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(getUserData().organizationId);
+    }
+    
+    // Organization branding (logos, etc.)
+    match /organizations/{orgId}/branding/{fileName} {
+      // Only admins can upload organization branding
+      allow write: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId) &&
+        isValidImageFile();
+      
+      // All users in organization can read branding
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+    }
+    
+    // Referral documents (contracts, agreements, etc.)
+    match /referrals/{referralId}/documents/{fileName} {
+      // Users can upload documents for their own referrals
+      allow write: if isAuthenticated() && 
+        isActiveUser() &&
+        isValidDocumentFile() &&
+        // Check if user owns the referral
+        firestore.get(/databases/(default)/documents/referrals/$(referralId)).data.submittedBy == request.auth.uid;
+      
+      // Users can read documents for their own referrals
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        firestore.get(/databases/(default)/documents/referrals/$(referralId)).data.submittedBy == request.auth.uid;
+      
+      // Admins can read all referral documents in their organization
+      allow read: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(firestore.get(/databases/(default)/documents/referrals/$(referralId)).data.organizationId);
+      
+      // Associates can read documents from their affiliates' referrals
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        getUserData().role == 'associate' &&
+        firestore.get(/databases/(default)/documents/users/$(firestore.get(/databases/(default)/documents/referrals/$(referralId)).data.submittedBy)).data.associateId == request.auth.uid;
+    }
+    
+    // System backups and exports (admin only)
+    match /exports/{orgId}/{fileName} {
+      // Only admins can create exports
+      allow write: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+      
+      // Only admins can read exports
+      allow read: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+    }
+    
+    // Temporary uploads (for processing)
+    match /temp/{userId}/{fileName} {
+      // Users can upload to their temp folder
+      allow write: if isAuthenticated() && 
+        isActiveUser() &&
+        request.auth.uid == userId &&
+        (isValidImageFile() || isValidDocumentFile());
+      
+      // Users can read from their temp folder
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        request.auth.uid == userId;
+      
+      // Auto-delete temp files after 24 hours (handled by Cloud Functions)
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

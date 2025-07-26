@@ -2,38 +2,245 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read/write their own user document
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Admins can read all users
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      // Admins can create new users
-      allow create: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    
+    // Helper functions for role checking
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Referrals
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isAssociate() {
+      return isAuthenticated() && getUserData().role == 'associate';
+    }
+    
+    function isAffiliate() {
+      return isAuthenticated() && getUserData().role == 'affiliate';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isSameOrganization(orgId) {
+      return isAuthenticated() && getUserData().organizationId == orgId;
+    }
+    
+    function isActiveUser() {
+      return isAuthenticated() && getUserData().isActive == true;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+      
+      // Users can update their own profile (limited fields)
+      allow update: if isOwner(userId) && 
+        isActiveUser() &&
+        // Prevent users from changing critical fields
+        !('role' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('organizationId' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('isActive' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('associateId' in request.resource.data.diff(resource.data).affectedKeys());
+      
+      // Admins can read all users in their organization
+      allow read: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId);
+      
+      // Associates can read affiliates assigned to them
+      allow read: if isAssociate() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId) &&
+        (resource.data.role == 'affiliate' && resource.data.associateId == request.auth.uid);
+      
+      // Admins can create new users in their organization
+      allow create: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == getUserData().organizationId;
+      
+      // Admins can update users in their organization
+      allow update: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId) &&
+        isSameOrganization(request.resource.data.organizationId);
+      
+      // No one can delete users (use isActive flag instead)
+      allow delete: if false;
+    }
+    
+    // Organizations collection
+    match /organizations/{orgId} {
+      // Users can read their own organization
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+      
+      // Only admins can update organization settings
+      allow update: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+      
+      // Allow creation for initial setup (first admin)
+      allow create: if isAuthenticated();
+      
+      // No deletion of organizations
+      allow delete: if false;
+    }
+    
+    // Organization settings (themes, branding, etc.)
+    match /organization_settings/{orgId} {
+      // Users can read their organization settings
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+      
+      // Only admins can update organization settings
+      allow write: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+    }
+    
+    // Referrals collection
     match /referrals/{referralId} {
-      // Users can read their own referrals
-      allow read: if request.auth != null && 
-        (resource.data.submittedBy == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      // Users can read referrals they submitted
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        resource.data.submittedBy == request.auth.uid;
+      
+      // Associates can read referrals from their affiliates
+      allow read: if isAssociate() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId) &&
+        get(/databases/$(database)/documents/users/$(resource.data.submittedBy)).data.associateId == request.auth.uid;
+      
+      // Admins can read all referrals in their organization
+      allow read: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId);
       
       // Users can create referrals
-      allow create: if request.auth != null && 
-        request.resource.data.submittedBy == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        isActiveUser() &&
+        request.resource.data.submittedBy == request.auth.uid &&
+        isSameOrganization(request.resource.data.organizationId);
       
-      // Only admins can update referrals
-      allow update: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Users can update their own referrals (limited fields and only if pending)
+      allow update: if isAuthenticated() && 
+        isActiveUser() &&
+        resource.data.submittedBy == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        // Prevent changing critical fields
+        !('submittedBy' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('organizationId' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('status' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('commissionAmount' in request.resource.data.diff(resource.data).affectedKeys());
+      
+      // Admins can update any referral in their organization
+      allow update: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId);
+      
+      // Associates can update referrals from their affiliates (status changes only)
+      allow update: if isAssociate() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId) &&
+        get(/databases/$(database)/documents/users/$(resource.data.submittedBy)).data.associateId == request.auth.uid &&
+        // Only allow status updates
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'notes']);
+      
+      // No deletion of referrals (audit trail)
+      allow delete: if false;
     }
     
-    // Fiber packages (admin only)
+    // Fiber packages collection
     match /packages/{packageId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // All authenticated users can read packages
+      allow read: if isAuthenticated() && isActiveUser();
+      
+      // Only admins can manage packages
+      allow write: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(request.resource.data.organizationId);
+    }
+    
+    // Commission settings
+    match /commission_settings/{orgId} {
+      // Users can read commission settings for their organization
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+      
+      // Only admins can update commission settings
+      allow write: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+    }
+    
+    // Analytics and reports (read-only for most users)
+    match /analytics/{document=**} {
+      // Admins can read all analytics in their organization
+      allow read: if isAdmin() && isActiveUser();
+      
+      // Associates can read their own performance data
+      allow read: if isAssociate() && 
+        isActiveUser() &&
+        resource.data.userId == request.auth.uid;
+      
+      // Affiliates can read their own performance data
+      allow read: if isAffiliate() && 
+        isActiveUser() &&
+        resource.data.userId == request.auth.uid;
+      
+      // Only system can write analytics (via Cloud Functions)
+      allow write: if false;
+    }
+    
+    // Audit logs (read-only)
+    match /audit_logs/{logId} {
+      // Only admins can read audit logs
+      allow read: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(resource.data.organizationId);
+      
+      // Only system can write audit logs
+      allow write: if false;
+    }
+    
+    // Notifications
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        resource.data.userId == request.auth.uid;
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && 
+        isActiveUser() &&
+        resource.data.userId == request.auth.uid &&
+        // Only allow marking as read
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
+      
+      // System creates notifications
+      allow create: if false;
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && 
+        isActiveUser() &&
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

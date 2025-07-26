@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -32,6 +34,113 @@ class AuthService {
       return null;
     } catch (e) {
       throw Exception('Sign in failed: ${e.toString()}');
+    }
+  }
+
+  // Sign in with Google
+  Future<UserModel?> signInWithGoogle() async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User canceled the sign-in
+        return null;
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential result = await _auth.signInWithCredential(credential);
+      
+      if (result.user != null) {
+        // Check if user exists in our database
+        final existingUser = await getUserData(result.user!.uid);
+        
+        if (existingUser != null) {
+          // Update last login time
+          await _firestore.collection('users').doc(result.user!.uid).update({
+            'lastLoginAt': DateTime.now().toIso8601String(),
+          });
+          return existingUser;
+        } else {
+          // This is a new Google user, they need to complete organization setup
+          // We'll return null to indicate they need to go through the signup flow
+          await _auth.signOut();
+          await _googleSignIn.signOut();
+          throw Exception('Account not found. Please complete the signup process first.');
+        }
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Google sign in failed: ${e.toString()}');
+    }
+  }
+
+  // Sign up with Google (for new users)
+  Future<UserModel?> signUpWithGoogle({
+    required String firstName,
+    required String lastName,
+    required UserRole role,
+    required String organizationId,
+    String? associateId,
+  }) async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User canceled the sign-in
+        return null;
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential result = await _auth.signInWithCredential(credential);
+      
+      if (result.user != null) {
+        // Check if user already exists
+        final existingUser = await getUserData(result.user!.uid);
+        
+        if (existingUser != null) {
+          throw Exception('Account already exists. Please use sign in instead.');
+        }
+
+        // Create new user record
+        final userModel = UserModel(
+          id: result.user!.uid,
+          email: result.user!.email!,
+          firstName: firstName,
+          lastName: lastName,
+          role: role,
+          organizationId: organizationId,
+          associateId: associateId,
+          createdAt: DateTime.now(),
+        );
+
+        // Save user data to Firestore
+        await _firestore.collection('users').doc(result.user!.uid).set(userModel.toMap());
+        
+        return userModel;
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Google sign up failed: ${e.toString()}');
     }
   }
 
@@ -133,6 +242,7 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
+      await _googleSignIn.signOut();
     } catch (e) {
       throw Exception('Sign out failed: ${e.toString()}');
     }

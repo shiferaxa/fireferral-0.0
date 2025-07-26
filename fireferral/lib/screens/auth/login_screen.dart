@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:ui';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/google_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,8 +74,6 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-
-
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -100,9 +99,87 @@ class _LoginScreenState extends State<LoginScreen>
         SnackBar(
           content: Text(authProvider.errorMessage ?? 'Login failed'),
           backgroundColor: theme.colorScheme.error,
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: _handleLogin,
+          ),
         ),
       );
     }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    // Temporarily disabled - need to configure Google OAuth credentials
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Text('Google Sign-In temporarily disabled. Please configure OAuth credentials in Google Cloud Console.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    
+    // TODO: Uncomment when Google OAuth is properly configured
+    /*
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await authProvider.signInWithGoogle();
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (!success && mounted) {
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final theme = Theme.of(context);
+      
+      String errorMessage = authProvider.errorMessage ?? 'Google sign in failed';
+      
+      // Check if the error is about account not found
+      if (errorMessage.contains('Account not found') || errorMessage.contains('complete the signup process')) {
+        // Show a more helpful message and option to go to signup
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Account Not Found'),
+            content: const Text(
+              'No account found with this Google account. Would you like to create a new account?'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.go('/signup');
+                },
+                child: const Text('Create Account'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Show regular error message
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: theme.colorScheme.error,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: _handleGoogleSignIn,
+            ),
+          ),
+        );
+      }
+    }
+    */
   }
 
   @override
@@ -375,6 +452,87 @@ class _LoginScreenState extends State<LoginScreen>
                                       ),
                                       const SizedBox(height: 16),
 
+                                      // Divider
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Container(
+                                              height: 1,
+                                              color: Colors.white.withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                                            child: Text(
+                                              'OR',
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: 0.7),
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Container(
+                                              height: 1,
+                                              color: Colors.white.withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+
+                                      // Google Sign In Button
+                                      Container(
+                                        width: double.infinity,
+                                        height: 56,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.1),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(16),
+                                            onTap: _isLoading ? null : _handleGoogleSignIn,
+                                            child: _isLoading
+                                                ? const Center(
+                                                    child: SizedBox(
+                                                      height: 24,
+                                                      width: 24,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4285F4)),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      const GoogleLogo(size: 24),
+                                                      const SizedBox(width: 12),
+                                                      const Text(
+                                                        'Continue with Google',
+                                                        style: TextStyle(
+                                                          color: Colors.black87,
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+
                                       // Forgot Password
                                       TextButton(
                                         onPressed: _isLoading ? null : _showForgotPasswordDialog,
@@ -464,8 +622,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-
-
   void _showForgotPasswordDialog() {
     final emailController = TextEditingController();
     
@@ -497,96 +653,34 @@ class _LoginScreenState extends State<LoginScreen>
             onPressed: () async {
               if (emailController.text.trim().isNotEmpty) {
                 final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final navigator = Navigator.of(context);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final theme = Theme.of(context);
+                
                 final success = await authProvider.resetPassword(emailController.text.trim());
                 
                 if (mounted) {
-                  final navigator = Navigator.of(context);
-                  final scaffoldMessenger = ScaffoldMessenger.of(context);
-                  final theme = Theme.of(context);
-                  
                   navigator.pop();
+                  
                   scaffoldMessenger.showSnackBar(
                     SnackBar(
                       content: Text(
                         success 
-                            ? 'Password reset email sent!' 
-                            : authProvider.errorMessage ?? 'Failed to send reset email',
+                          ? 'Password reset email sent! Check your inbox.'
+                          : authProvider.errorMessage ?? 'Failed to send reset email',
                       ),
                       backgroundColor: success 
-                          ? theme.colorScheme.primary 
-                          : theme.colorScheme.error,
+                        ? theme.colorScheme.primary 
+                        : theme.colorScheme.error,
                     ),
                   );
                 }
               }
             },
-            child: const Text('Send Reset Link'),
+            child: const Text('Send Reset Email'),
           ),
         ],
       ),
     );
   }
-}
-
-class LogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withValues(alpha: 0.9),
-          Colors.white.withValues(alpha: 0.7),
-          Colors.white.withValues(alpha: 0.8),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    final path = Path();
-    
-    // Create the flowing S shape based on your logo
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-    final radius = size.width * 0.4;
-    
-    // First curve (top part of S)
-    path.moveTo(centerX - radius * 0.8, centerY - radius * 0.6);
-    path.quadraticBezierTo(
-      centerX + radius * 0.6, centerY - radius * 1.2,
-      centerX + radius * 0.8, centerY - radius * 0.2,
-    );
-    
-    // Middle transition
-    path.quadraticBezierTo(
-      centerX + radius * 0.4, centerY,
-      centerX, centerY,
-    );
-    
-    // Second curve (bottom part of S)
-    path.quadraticBezierTo(
-      centerX - radius * 0.4, centerY,
-      centerX - radius * 0.8, centerY + radius * 0.2,
-    );
-    path.quadraticBezierTo(
-      centerX - radius * 0.6, centerY + radius * 1.2,
-      centerX + radius * 0.8, centerY + radius * 0.6,
-    );
-    
-    // Create the 3D effect with multiple layers
-    for (int i = 0; i < 3; i++) {
-      final layerPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8.0 - (i * 2)
-        ..color = Colors.white.withValues(alpha: 0.8 - (i * 0.2));
-      
-      canvas.drawPath(path, layerPaint);
-    }
-    
-    // Fill the main shape
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

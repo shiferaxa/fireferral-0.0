@@ -118,7 +118,10 @@ class _FireferralAppState extends State<FireferralApp> {
         ),
         GoRoute(
           path: '/organization-signup',
-          builder: (context, state) => const OrganizationSignupScreen(),
+          builder: (context, state) {
+            final adminData = state.extra as Map<String, String>?;
+            return OrganizationSignupScreen(prefillAdminData: adminData);
+          },
         ),
         GoRoute(
           path: '/dashboard',

@@ -64,6 +64,70 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> signInWithGoogle() async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      _currentUser = await _authService.signInWithGoogle();
+      
+      if (_currentUser != null) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Google sign in failed';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> signUpWithGoogle({
+    required String firstName,
+    required String lastName,
+    required UserRole role,
+    required String organizationId,
+    String? associateId,
+  }) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      _currentUser = await _authService.signUpWithGoogle(
+        firstName: firstName,
+        lastName: lastName,
+        role: role,
+        organizationId: organizationId,
+        associateId: associateId,
+      );
+      
+      if (_currentUser != null) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Google sign up failed';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> createUser({
     required String email,
     required String password,
