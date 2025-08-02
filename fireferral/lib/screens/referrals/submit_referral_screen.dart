@@ -5,6 +5,7 @@ import '../../models/referral_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/referral_service.dart';
+import '../../services/package_service.dart';
 
 class SubmitReferralScreen extends StatefulWidget {
   const SubmitReferralScreen({super.key});
@@ -27,9 +28,39 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
   
   FiberSpeed _selectedPackage = FiberSpeed.skip;
   bool _isLoading = false;
+  bool _packagesLoading = true;
   int _currentStep = 0;
   
-  final List<FiberPackage> _packages = FiberPackage.getDefaultPackages();
+  List<FiberPackage> _packages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackages();
+  }
+
+  Future<void> _loadPackages() async {
+    try {
+      final packages = await PackageService.getPackages();
+      setState(() {
+        _packages = packages;
+        _packagesLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _packages = FiberPackage.getDefaultPackages();
+        _packagesLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading packages: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -157,7 +188,18 @@ class _SubmitReferralScreenState extends State<SubmitReferralScreen> {
             ],
           ),
         ),
-        child: Form(
+        child: _packagesLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Loading packages...'),
+                  ],
+                ),
+              )
+            : Form(
           key: _formKey,
           child: Stepper(
             currentStep: _currentStep,

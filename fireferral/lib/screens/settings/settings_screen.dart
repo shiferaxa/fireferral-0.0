@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../themes/app_themes.dart';
+import '../profile/edit_profile_screen.dart';
+import '../profile/change_password_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -285,10 +287,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             subtitle: Text('${user.fullName} (${user.email})'),
                             trailing: const Icon(Icons.arrow_forward_ios),
                             onTap: () {
-                              // TODO: Navigate to profile edit screen
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Profile editing coming soon'),
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const EditProfileScreen(),
                                 ),
                               );
                             },
@@ -300,10 +301,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             subtitle: const Text('Update your account password'),
                             trailing: const Icon(Icons.arrow_forward_ios),
                             onTap: () {
-                              // TODO: Navigate to change password screen
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Password change coming soon'),
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const ChangePasswordScreen(),
                                 ),
                               );
                             },

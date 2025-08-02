@@ -110,76 +110,78 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
-    // Temporarily disabled - need to configure Google OAuth credentials
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
-    scaffoldMessenger.showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In temporarily disabled. Please configure OAuth credentials in Google Cloud Console.'),
-        backgroundColor: Colors.orange,
-      ),
-    );
-    
-    // TODO: Uncomment when Google OAuth is properly configured
-    /*
     setState(() {
       _isLoading = true;
     });
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.signInWithGoogle();
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.signInWithGoogle();
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    if (!success && mounted) {
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      final theme = Theme.of(context);
-      
-      String errorMessage = authProvider.errorMessage ?? 'Google sign in failed';
-      
-      // Check if the error is about account not found
-      if (errorMessage.contains('Account not found') || errorMessage.contains('complete the signup process')) {
-        // Show a more helpful message and option to go to signup
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Account Not Found'),
-            content: const Text(
-              'No account found with this Google account. Would you like to create a new account?'
+      if (!success && mounted) {
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        final theme = Theme.of(context);
+        
+        String errorMessage = authProvider.errorMessage ?? 'Google sign in failed';
+        
+        // Check if the error is about account not found
+        if (errorMessage.contains('Account not found') || errorMessage.contains('complete the signup process')) {
+          // Show a more helpful message and option to go to signup
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Account Not Found'),
+              content: const Text(
+                'No account found with this Google account. Would you like to create a new account?'
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.go('/signup');
+                  },
+                  child: const Text('Create Account'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+          );
+        } else {
+          // Show regular error message
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: theme.colorScheme.error,
+              action: SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: _handleGoogleSignIn,
               ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  context.go('/signup');
-                },
-                child: const Text('Create Account'),
-              ),
-            ],
-          ),
-        );
-      } else {
-        // Show regular error message
-        scaffoldMessenger.showSnackBar(
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: theme.colorScheme.error,
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: _handleGoogleSignIn,
-            ),
+            content: Text('Google Sign-In error: ${e.toString()}'),
+            backgroundColor: Colors.red,
           ),
         );
       }
     }
-    */
   }
 
   @override

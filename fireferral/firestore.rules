@@ -109,6 +109,19 @@ service cloud.firestore {
         isSameOrganization(orgId);
     }
     
+    // Organization settings subcollection (packages, etc.)
+    match /organizations/{orgId}/settings/{settingId} {
+      // Users can read their organization settings
+      allow read: if isAuthenticated() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+      
+      // Only admins can update organization settings
+      allow write: if isAdmin() && 
+        isActiveUser() &&
+        isSameOrganization(orgId);
+    }
+    
     // Referrals collection
     match /referrals/{referralId} {
       // Users can read referrals they submitted

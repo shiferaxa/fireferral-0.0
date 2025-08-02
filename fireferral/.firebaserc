@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "fireferral"
-  }
+    "default": "fireferral",
+    "staging": "fireferral"
+  },
+  "targets": {},
+  "etags": {}
 }

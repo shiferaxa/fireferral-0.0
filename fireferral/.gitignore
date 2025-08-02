@@ -43,3 +43,25 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase and Google Services configuration files
+# These contain API keys and should not be committed to public repos
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# API keys and secrets
+secrets.json
+config.json
+firebase-config.json
+
+# Temporary files
+users.json
+*.tmp
+*.temp

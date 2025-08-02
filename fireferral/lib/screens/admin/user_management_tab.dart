@@ -408,18 +408,209 @@ class _UserManagementTabState extends State<UserManagementTab> {
   }
 
   void _showEditUserDialog(UserModel user) {
-    // Implementation for editing user details
+    final firstNameController = TextEditingController(text: user.firstName);
+    final lastNameController = TextEditingController(text: user.lastName);
+    final emailController = TextEditingController(text: user.email);
+    final phoneController = TextEditingController(text: user.phone ?? '');
+    final addressController = TextEditingController(text: user.address ?? '');
+    
+    UserRole selectedRole = user.role;
+    String? selectedAssociateId = user.associateId;
+    bool isActive = user.isActive;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit User'),
-        content: Text('Edit functionality for ${user.fullName} coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Edit ${user.fullName}'),
+          content: SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Basic Information
+                  TextField(
+                    controller: firstNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'First Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: lastNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Last Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone (Optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: addressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Address (Optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Role Selection
+                  DropdownButtonFormField<UserRole>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: UserRole.values.map((role) {
+                      return DropdownMenuItem(
+                        value: role,
+                        child: Text(role.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRole = value!;
+                        if (selectedRole != UserRole.affiliate) {
+                          selectedAssociateId = null;
+                        }
+                      });
+                    },
+                  ),
+                  
+                  // Associate Selection (for affiliates)
+                  if (selectedRole == UserRole.affiliate) ...[
+                    const SizedBox(height: 16),
+                    FutureBuilder<List<UserModel>>(
+                      future: Provider.of<AuthProvider>(context, listen: false)
+                          .authService
+                          .getUsersByRole(UserRole.associate, user.organizationId),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const CircularProgressIndicator();
+                        }
+                        
+                        final associates = snapshot.data!;
+                        return DropdownButtonFormField<String>(
+                          value: selectedAssociateId,
+                          decoration: const InputDecoration(
+                            labelText: 'Assigned Associate',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: associates.map((associate) {
+                            return DropdownMenuItem(
+                              value: associate.id,
+                              child: Text(associate.fullName),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              selectedAssociateId = value;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Active Status
+                  SwitchListTile(
+                    title: const Text('Active User'),
+                    subtitle: Text(isActive ? 'User can access the app' : 'User is deactivated'),
+                    value: isActive,
+                    onChanged: (value) {
+                      setState(() {
+                        isActive = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Validate input
+                if (firstNameController.text.trim().isEmpty ||
+                    lastNameController.text.trim().isEmpty ||
+                    emailController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in all required fields'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                try {
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  
+                  // Update user data
+                  final updateData = {
+                    'firstName': firstNameController.text.trim(),
+                    'lastName': lastNameController.text.trim(),
+                    'email': emailController.text.trim(),
+                    'phone': phoneController.text.trim().isEmpty ? null : phoneController.text.trim(),
+                    'address': addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+                    'role': selectedRole.name,
+                    'associateId': selectedAssociateId,
+                    'isActive': isActive,
+                  };
+                  
+                  await authProvider.authService.updateUserData(user.id, updateData);
+                  
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('User updated successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _loadUsers(); // Refresh the user list
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to update user: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/fiber_package.dart';
+import '../../services/package_service.dart';
 
 class CommissionSettingsTab extends StatefulWidget {
   const CommissionSettingsTab({super.key});
@@ -13,6 +14,8 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
   List<FiberPackage> _packages = [];
   bool _isLoading = true;
   bool _hasChanges = false;
+  final Map<String, TextEditingController> _affiliateControllers = {};
+  final Map<String, TextEditingController> _associateControllers = {};
 
   @override
   void initState() {
@@ -20,11 +23,66 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
     _loadPackages();
   }
 
-  void _loadPackages() {
-    setState(() {
-      _packages = FiberPackage.getDefaultPackages();
-      _isLoading = false;
-    });
+  Future<void> _loadPackages() async {
+    try {
+      final packages = await PackageService.getPackages();
+      _initializeControllers(packages);
+      setState(() {
+        _packages = packages;
+        _isLoading = false;
+      });
+    } catch (e) {
+      final defaultPackages = FiberPackage.getDefaultPackages();
+      _initializeControllers(defaultPackages);
+      setState(() {
+        _packages = defaultPackages;
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading packages: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _initializeControllers(List<FiberPackage> packages) {
+    // Dispose existing controllers
+    for (var controller in _affiliateControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in _associateControllers.values) {
+      controller.dispose();
+    }
+    
+    // Create new controllers
+    _affiliateControllers.clear();
+    _associateControllers.clear();
+    
+    for (var package in packages) {
+      final key = package.speed.name;
+      _affiliateControllers[key] = TextEditingController(
+        text: package.affiliateCommission.toStringAsFixed(2),
+      );
+      _associateControllers[key] = TextEditingController(
+        text: package.associateCommission.toStringAsFixed(2),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    // Dispose all controllers
+    for (var controller in _affiliateControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in _associateControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   void _markChanged() {
@@ -36,17 +94,30 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
   }
 
   Future<void> _saveChanges() async {
-    // In a real app, you would save to Firebase here
-    setState(() {
-      _hasChanges = false;
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Commission rates updated successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    try {
+      await PackageService.savePackages(_packages);
+      setState(() {
+        _hasChanges = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Commission rates updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving commission rates: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -58,7 +129,7 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
           end: Alignment.bottomCenter,
           colors: [
             Theme.of(context).colorScheme.surface,
-            Theme.of(context).colorScheme.surface.withOpacity(0.8),
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
           ],
         ),
       ),
@@ -95,10 +166,10 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF00A8E6).withOpacity(0.1),
+              color: const Color(0xFF00A8E6).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF00A8E6).withOpacity(0.3),
+                color: const Color(0xFF00A8E6).withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -180,7 +251,7 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
                       Text(
                         package.description,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -204,7 +275,7 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
                 Expanded(
                   child: _buildCommissionField(
                     'Affiliate Commission',
-                    package.affiliateCommission,
+                    _affiliateControllers[package.speed.name]!,
                     (value) {
                       setState(() {
                         _packages[index] = package.copyWith(
@@ -219,7 +290,7 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
                 Expanded(
                   child: _buildCommissionField(
                     'Associate Commission',
-                    package.associateCommission,
+                    _associateControllers[package.speed.name]!,
                     (value) {
                       setState(() {
                         _packages[index] = package.copyWith(
@@ -244,9 +315,9 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
                   feature,
                   style: const TextStyle(fontSize: 12),
                 ),
-                backgroundColor: const Color(0xFF00A8E6).withOpacity(0.1),
+                backgroundColor: const Color(0xFF00A8E6).withValues(alpha: 0.1),
                 side: BorderSide(
-                  color: const Color(0xFF00A8E6).withOpacity(0.3),
+                  color: const Color(0xFF00A8E6).withValues(alpha: 0.3),
                 ),
               )).toList(),
             ),
@@ -258,13 +329,9 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
 
   Widget _buildCommissionField(
     String label,
-    double currentValue,
+    TextEditingController controller,
     Function(double) onChanged,
   ) {
-    final controller = TextEditingController(
-      text: currentValue.toStringAsFixed(2),
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -279,7 +346,7 @@ class _CommissionSettingsTabState extends State<CommissionSettingsTab> {
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
           ],
           decoration: InputDecoration(
             prefixText: '\$',
