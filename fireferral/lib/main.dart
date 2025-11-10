@@ -8,11 +8,12 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/app_state_service.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/auth/signup_screen.dart';
-import 'screens/auth/organization_signup_screen.dart';
+import 'screens/auth/invision_setup_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/dashboard/property_dashboard_screen.dart';
 import 'screens/splash_screen.dart';
 import 'themes/app_themes.dart';
+import 'models/user_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,30 +76,43 @@ class _FireferralAppState extends State<FireferralApp> {
   GoRouter _createRouter(AuthProvider authProvider) {
     return GoRouter(
       initialLocation: '/splash',
-      redirect: (context, state) {
+      redirect: (context, state) async {
         final isLoggedIn = authProvider.isAuthenticated;
         final isLoading = authProvider.isLoading;
+        final currentUser = authProvider.currentUser;
 
         // Show splash while loading
         if (isLoading) {
           return '/splash';
         }
 
+        // Check if Invision admin exists (for initial setup)
+        if (!isLoggedIn && state.matchedLocation == '/splash') {
+          final hasAdmin = await authProvider.hasInvisionAdmin();
+          if (!hasAdmin) {
+            return '/invision-setup';
+          }
+        }
+
         // Redirect to login if not authenticated
         if (!isLoggedIn &&
             state.matchedLocation != '/login' &&
-            state.matchedLocation != '/signup' &&
-            state.matchedLocation != '/organization-signup') {
+            state.matchedLocation != '/invision-setup') {
           return '/login';
         }
 
-        // Redirect to dashboard if authenticated and on login/splash/signup
+        // Redirect to appropriate dashboard based on role
         if (isLoggedIn &&
             (state.matchedLocation == '/login' ||
                 state.matchedLocation == '/splash' ||
-                state.matchedLocation == '/signup' ||
-                state.matchedLocation == '/organization-signup')) {
-          return '/dashboard';
+                state.matchedLocation == '/invision-setup')) {
+          // Route to appropriate dashboard based on user role
+          if (currentUser?.role == UserRole.invisionAdmin) {
+            return '/admin-dashboard';
+          } else if (currentUser?.role == UserRole.property) {
+            return '/property-dashboard';
+          }
+          return '/admin-dashboard'; // Default fallback
         }
 
         return null;
@@ -109,23 +123,33 @@ class _FireferralAppState extends State<FireferralApp> {
           builder: (context, state) => const SplashScreen(),
         ),
         GoRoute(
+          path: '/invision-setup',
+          builder: (context, state) => const InvisionSetupScreen(),
+        ),
+        GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
         ),
         GoRoute(
-          path: '/signup',
-          builder: (context, state) => const SignupScreen(),
+          path: '/admin-dashboard',
+          builder: (context, state) => const DashboardScreen(),
         ),
         GoRoute(
-          path: '/organization-signup',
-          builder: (context, state) {
-            final adminData = state.extra as Map<String, String>?;
-            return OrganizationSignupScreen(prefillAdminData: adminData);
-          },
+          path: '/property-dashboard',
+          builder: (context, state) => const PropertyDashboardScreen(),
         ),
+        // Legacy route for backward compatibility
         GoRoute(
           path: '/dashboard',
-          builder: (context, state) => const DashboardScreen(),
+          redirect: (context, state) {
+            final currentUser = authProvider.currentUser;
+            if (currentUser?.role == UserRole.invisionAdmin) {
+              return '/admin-dashboard';
+            } else if (currentUser?.role == UserRole.property) {
+              return '/property-dashboard';
+            }
+            return '/admin-dashboard';
+          },
         ),
       ],
     );

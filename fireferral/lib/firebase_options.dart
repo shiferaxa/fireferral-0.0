@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '2371357998',
     projectId: 'fireferral',
     storageBucket: 'fireferral.firebasestorage.app',
-    iosBundleId: 'com.example.fireferral',
+    iosBundleId: 'com.fireferral.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '2371357998',
     projectId: 'fireferral',
     storageBucket: 'fireferral.firebasestorage.app',
-    iosBundleId: 'com.example.fireferral',
+    iosBundleId: 'com.fireferral.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

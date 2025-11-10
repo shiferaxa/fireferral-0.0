@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io' show Platform;
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
@@ -65,6 +66,13 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> signInWithGoogle() async {
+    // Temporarily disable Google Sign-In on iOS to prevent crashes
+    if (Platform.isIOS) {
+      _errorMessage = 'Google Sign-In is temporarily disabled on iOS. Please use email/password login.';
+      notifyListeners();
+      return false;
+    }
+
     try {
       _isLoading = true;
       _errorMessage = null;
@@ -90,70 +98,35 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> signUpWithGoogle({
-    required String firstName,
-    required String lastName,
-    required UserRole role,
-    required String organizationId,
-    String? associateId,
-  }) async {
-    try {
-      _isLoading = true;
-      _errorMessage = null;
-      notifyListeners();
-
-      _currentUser = await _authService.signUpWithGoogle(
-        firstName: firstName,
-        lastName: lastName,
-        role: role,
-        organizationId: organizationId,
-        associateId: associateId,
-      );
-      
-      if (_currentUser != null) {
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage = 'Google sign up failed';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-    } catch (e) {
-      _errorMessage = e.toString();
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> createUser({
+  // Google sign-up is disabled - property accounts must be created by Invision admin
+  
+  // Create property account (Invision admin only)
+  Future<bool> createPropertyAccount({
     required String email,
     required String password,
     required String firstName,
     required String lastName,
-    required UserRole role,
-    required String organizationId,
-    String? associateId,
+    required String propertyName,
+    String? propertyAddress,
+    String? phone,
   }) async {
     try {
       _errorMessage = null;
       
-      final newUser = await _authService.createUserAccount(
+      final newUser = await _authService.createPropertyAccount(
         email: email,
         password: password,
         firstName: firstName,
         lastName: lastName,
-        role: role,
-        organizationId: organizationId,
-        associateId: associateId,
+        propertyName: propertyName,
+        propertyAddress: propertyAddress,
+        phone: phone,
       );
       
       if (newUser != null) {
         return true;
       } else {
-        _errorMessage = 'User creation failed';
+        _errorMessage = 'Property account creation failed';
         return false;
       }
     } catch (e) {
@@ -163,40 +136,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> createFirstAdmin({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String organizationId,
-  }) async {
+  Future<bool> hasInvisionAdmin() async {
     try {
-      _errorMessage = null;
-      
-      final newUser = await _authService.createFirstAdminAccount(
-        email: email,
-        password: password,
-        firstName: firstName,
-        lastName: lastName,
-        organizationId: organizationId,
-      );
-      
-      if (newUser != null) {
-        return true;
-      } else {
-        _errorMessage = 'Admin creation failed';
-        return false;
-      }
-    } catch (e) {
-      _errorMessage = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> hasAdminUser() async {
-    try {
-      return await _authService.hasAdminUser();
+      return await _authService.hasInvisionAdmin();
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
@@ -246,12 +188,15 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Helper methods for role checking
-  bool get isAdmin => _currentUser?.role == UserRole.admin;
-  bool get isAssociate => _currentUser?.role == UserRole.associate;
-  bool get isAffiliate => _currentUser?.role == UserRole.affiliate;
+  bool get isInvisionAdmin => _currentUser?.role == UserRole.invisionAdmin;
+  bool get isProperty => _currentUser?.role == UserRole.property;
   
-  bool canManageUsers() => isAdmin;
-  bool canManageAffiliates() => isAdmin || isAssociate;
-  bool canViewAllReferrals() => isAdmin;
-  bool canUpdateCommissions() => isAdmin;
+  // Only Invision admin has these permissions
+  bool canManageProperties() => isInvisionAdmin;
+  bool canViewAllReferrals() => isInvisionAdmin;
+  bool canViewStatistics() => isInvisionAdmin;
+  bool canUpdateCommissions() => isInvisionAdmin;
+  
+  // For backward compatibility (will be removed)
+  bool get isAdmin => isInvisionAdmin;
 }

@@ -1,16 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum UserRole { admin, associate, affiliate }
+enum UserRole { invisionAdmin, property }
 
 extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
-      case UserRole.admin:
-        return 'Administrator';
-      case UserRole.associate:
-        return 'Associate';
-      case UserRole.affiliate:
-        return 'Affiliate';
+      case UserRole.invisionAdmin:
+        return 'Invision Administrator';
+      case UserRole.property:
+        return 'Property';
     }
   }
 }
@@ -21,8 +19,8 @@ class UserModel {
   final String firstName;
   final String lastName;
   final UserRole role;
-  final String organizationId; // Organization this user belongs to
-  final String? associateId; // For affiliates - which associate manages them
+  final String? propertyName; // Name of the property (for property accounts)
+  final String? propertyAddress; // Address of the property
   final String? phone;
   final String? address;
   final bool isActive;
@@ -35,8 +33,8 @@ class UserModel {
     required this.firstName,
     required this.lastName,
     required this.role,
-    required this.organizationId,
-    this.associateId,
+    this.propertyName,
+    this.propertyAddress,
     this.phone,
     this.address,
     this.isActive = true,
@@ -53,8 +51,8 @@ class UserModel {
       'firstName': firstName,
       'lastName': lastName,
       'role': role.name,
-      'organizationId': organizationId,
-      'associateId': associateId,
+      'propertyName': propertyName,
+      'propertyAddress': propertyAddress,
       'phone': phone,
       'address': address,
       'isActive': isActive,
@@ -71,10 +69,10 @@ class UserModel {
       lastName: map['lastName'] ?? '',
       role: UserRole.values.firstWhere(
         (e) => e.name == map['role'],
-        orElse: () => UserRole.affiliate,
+        orElse: () => UserRole.property,
       ),
-      organizationId: map['organizationId'] ?? '',
-      associateId: map['associateId'],
+      propertyName: map['propertyName'],
+      propertyAddress: map['propertyAddress'],
       phone: map['phone'],
       address: map['address'],
       isActive: map['isActive'] ?? true,
@@ -96,8 +94,8 @@ class UserModel {
     String? firstName,
     String? lastName,
     UserRole? role,
-    String? organizationId,
-    String? associateId,
+    String? propertyName,
+    String? propertyAddress,
     String? phone,
     String? address,
     bool? isActive,
@@ -110,8 +108,8 @@ class UserModel {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       role: role ?? this.role,
-      organizationId: organizationId ?? this.organizationId,
-      associateId: associateId ?? this.associateId,
+      propertyName: propertyName ?? this.propertyName,
+      propertyAddress: propertyAddress ?? this.propertyAddress,
       phone: phone ?? this.phone,
       address: address ?? this.address,
       isActive: isActive ?? this.isActive,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'referral_management_tab.dart';
-import 'user_management_tab.dart';
+import 'property_management_tab.dart';
 import 'commission_settings_tab.dart';
 import 'analytics_tab.dart';
 
@@ -53,8 +53,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               text: 'Referrals',
             ),
             Tab(
-              icon: Icon(Icons.people),
-              text: 'Users',
+              icon: Icon(Icons.business),
+              text: 'Properties',
             ),
             Tab(
               icon: Icon(Icons.attach_money),
@@ -71,7 +71,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         controller: _tabController,
         children: const [
           ReferralManagementTab(),
-          UserManagementTab(),
+          PropertyManagementTab(),
           CommissionSettingsTab(),
           AnalyticsTab(),
         ],

@@ -92,83 +92,17 @@ class AuthService {
     }
   }
 
-  // Sign up with Google (for new users)
-  Future<UserModel?> signUpWithGoogle({
-    required String firstName,
-    required String lastName,
-    required UserRole role,
-    required String organizationId,
-    String? associateId,
-  }) async {
-    try {
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+  // Note: Google sign-up is disabled. Property accounts must be created by Invision admin.
 
-      if (googleUser == null) {
-        // User canceled the sign-in
-        return null;
-      }
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google credential
-      final UserCredential result = await _auth.signInWithCredential(
-        credential,
-      );
-
-      if (result.user != null) {
-        // Check if user already exists
-        final existingUser = await getUserData(result.user!.uid);
-
-        if (existingUser != null) {
-          throw Exception(
-            'Account already exists. Please use sign in instead.',
-          );
-        }
-
-        // Create new user record
-        final userModel = UserModel(
-          id: result.user!.uid,
-          email: result.user!.email!,
-          firstName: firstName,
-          lastName: lastName,
-          role: role,
-          organizationId: organizationId,
-          associateId: associateId,
-          createdAt: DateTime.now(),
-        );
-
-        // Save user data to Firestore
-        await _firestore
-            .collection('users')
-            .doc(result.user!.uid)
-            .set(userModel.toMap());
-
-        return userModel;
-      }
-      return null;
-    } catch (e) {
-      throw Exception('Google sign up failed: ${e.toString()}');
-    }
-  }
-
-  // Create user account (Admin only)
-  Future<UserModel?> createUserAccount({
+  // Create property account (Invision Admin only)
+  Future<UserModel?> createPropertyAccount({
     required String email,
     required String password,
     required String firstName,
     required String lastName,
-    required UserRole role,
-    required String organizationId,
-    String? associateId,
+    required String propertyName,
+    String? propertyAddress,
+    String? phone,
   }) async {
     try {
       final UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -182,9 +116,10 @@ class AuthService {
           email: email,
           firstName: firstName,
           lastName: lastName,
-          role: role,
-          organizationId: organizationId,
-          associateId: associateId,
+          role: UserRole.property,
+          propertyName: propertyName,
+          propertyAddress: propertyAddress,
+          phone: phone,
           createdAt: DateTime.now(),
         );
 
@@ -198,7 +133,7 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      throw Exception('Account creation failed: ${e.toString()}');
+      throw Exception('Property account creation failed: ${e.toString()}');
     }
   }
 
@@ -227,42 +162,41 @@ class AuthService {
     }
   }
 
-  // Get users by role within organization
-  Future<List<UserModel>> getUsersByRole(
-    UserRole role,
-    String organizationId,
-  ) async {
+  // Get all property accounts
+  Future<List<UserModel>> getAllProperties() async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
-          .where('role', isEqualTo: role.name)
-          .where('organizationId', isEqualTo: organizationId)
+          .where('role', isEqualTo: UserRole.property.name)
           .where('isActive', isEqualTo: true)
+          .orderBy('propertyName')
           .get();
 
       return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
     } catch (e) {
-      throw Exception('Failed to get users: ${e.toString()}');
+      throw Exception('Failed to get properties: ${e.toString()}');
     }
   }
 
-  // Get affiliates by associate within organization
-  Future<List<UserModel>> getAffiliatesByAssociate(
-    String associateId,
-    String organizationId,
-  ) async {
+  // Search properties by name
+  Future<List<UserModel>> searchProperties(String searchTerm) async {
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
-          .where('role', isEqualTo: UserRole.affiliate.name)
-          .where('associateId', isEqualTo: associateId)
-          .where('organizationId', isEqualTo: organizationId)
+          .where('role', isEqualTo: UserRole.property.name)
           .where('isActive', isEqualTo: true)
           .get();
 
-      return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+      // Filter by property name (Firestore doesn't support case-insensitive search)
+      final properties = snapshot.docs
+          .map((doc) => UserModel.fromFirestore(doc))
+          .where((user) => 
+              user.propertyName?.toLowerCase().contains(searchTerm.toLowerCase()) ?? false)
+          .toList();
+
+      return properties;
     } catch (e) {
-      throw Exception('Failed to get affiliates: ${e.toString()}');
+      throw Exception('Failed to search properties: ${e.toString()}');
     }
   }
 
@@ -303,52 +237,30 @@ class AuthService {
     }
   }
 
-  // Check if any admin exists (for initial setup)
-  Future<bool> hasAdminUser() async {
+  // Check if Invision admin exists
+  Future<bool> hasInvisionAdmin() async {
     try {
+      // Check system config first
+      final configDoc = await _firestore
+          .collection('system_config')
+          .doc('invision')
+          .get();
+      
+      if (configDoc.exists && configDoc.data()?['adminCreated'] == true) {
+        return true;
+      }
+
+      // Fallback: check users collection
       final QuerySnapshot snapshot = await _firestore
           .collection('users')
-          .where('role', isEqualTo: UserRole.admin.name)
+          .where('role', isEqualTo: UserRole.invisionAdmin.name)
           .where('isActive', isEqualTo: true)
           .limit(1)
           .get();
 
-      final hasAdmin = snapshot.docs.isNotEmpty;
-      return hasAdmin;
+      return snapshot.docs.isNotEmpty;
     } catch (e) {
-      // If we can't check, assume no admin exists to allow signup
       return false;
-    }
-  }
-
-  // Create first admin account (no authentication required)
-  Future<UserModel?> createFirstAdminAccount({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String organizationId,
-  }) async {
-    try {
-      // Check if admin already exists
-      final hasAdmin = await hasAdminUser();
-
-      if (hasAdmin) {
-        throw Exception('Admin account already exists');
-      }
-
-      final result = await createUserAccount(
-        email: email,
-        password: password,
-        firstName: firstName,
-        lastName: lastName,
-        role: UserRole.admin,
-        organizationId: organizationId,
-      );
-
-      return result;
-    } catch (e) {
-      throw Exception('Failed to create first admin: ${e.toString()}');
     }
   }
 }

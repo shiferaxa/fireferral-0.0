@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:ui';
+import 'dart:io' show Platform;
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/google_logo.dart';
@@ -61,8 +62,10 @@ class _LoginScreenState extends State<LoginScreen>
   
   void _startAnimations() async {
     await Future.delayed(const Duration(milliseconds: 200));
-    _slideController.forward();
-    _fadeController.forward();
+    if (mounted) {
+      _slideController.forward();
+      _fadeController.forward();
+    }
   }
 
   @override
@@ -110,6 +113,18 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
+    // Temporarily disable Google Sign-In on iOS to prevent crashes
+    if (Platform.isIOS) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Google Sign-In is temporarily disabled on iOS. Please use email/password login.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });

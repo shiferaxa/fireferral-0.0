@@ -35,9 +35,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
       
-      if (user != null && user.role == UserRole.admin) {
-        // Only admin users see analytics
-        final data = await _referralService.getAnalyticsData(organizationId: user.organizationId);
+      // Only Invision admin can see analytics
+      if (user != null && user.role == UserRole.invisionAdmin) {
+        // Load analytics for admin
+        final data = await _referralService.getAnalyticsData();
         
         if (mounted) {
           setState(() {
@@ -46,7 +47,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           });
         }
       } else {
-        // Non-admin users don't see analytics
+        // Property users should not see this dashboard at all
+        // They should be routed to PropertyDashboardScreen
         if (mounted) {
           setState(() {
             _analyticsData = null;
@@ -59,7 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _isLoadingAnalytics = false;
         });
-        if (Provider.of<AuthProvider>(context, listen: false).currentUser?.role == UserRole.admin) {
+        if (Provider.of<AuthProvider>(context, listen: false).isInvisionAdmin) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error loading analytics: ${e.toString()}'),
@@ -243,10 +245,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 2:
         return _buildSubmitTab(user);
       case 3:
-        if (user.role == UserRole.admin) {
+        if (user.role == UserRole.invisionAdmin) {
           return _buildAdminTab();
         } else {
-          // Both associates and affiliates get profile tab
           return _buildProfileTab(user);
         }
       default:
@@ -271,13 +272,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
 
     // Add role-specific tab
-    if (user.role == UserRole.admin) {
+    if (user.role == UserRole.invisionAdmin) {
       items.add(const BottomNavigationBarItem(
         icon: Icon(Icons.admin_panel_settings),
         label: 'Admin',
       ));
     } else {
-      // Both associates and affiliates get profile tab
       items.add(const BottomNavigationBarItem(
         icon: Icon(Icons.person),
         label: 'Profile',
@@ -314,10 +314,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboardTab(UserModel user) {
-    if (user.role == UserRole.admin) {
+    // This dashboard is only for Invision admin
+    // Property users should never see this screen
+    if (user.role == UserRole.invisionAdmin) {
       return _buildAdminDashboard(user);
     } else {
-      return _buildUserDashboard(user);
+      // Property users should be redirected to PropertyDashboardScreen
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text('Access Denied'),
+            const SizedBox(height: 8),
+            Text(
+              'Property accounts should use the property dashboard',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
     }
   }
 
